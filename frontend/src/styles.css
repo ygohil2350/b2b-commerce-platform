@@ -1,0 +1,99 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+.brand-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #176b5b;
+  color: white;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+.brand-mark.large {
+  width: 54px;
+  height: 54px;
+  background: #e3a72f;
+  color: #0b1627;
+  margin-bottom: 34px;
+}
+.login-shell {
+  min-height: 100vh;
+  background: #0b1627;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  align-items: center;
+  gap: 8vw;
+  padding: 6vw;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+.login-shell:after {
+  content: "";
+  position: absolute;
+  width: 520px;
+  height: 520px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  left: -180px;
+  bottom: -300px;
+  box-shadow:
+    0 0 0 80px rgba(255, 255, 255, 0.025),
+    0 0 0 160px rgba(255, 255, 255, 0.015);
+}
+.login-copy {
+  position: relative;
+  z-index: 1;
+}
+.signal {
+  margin-top: 56px;
+  color: #aebbb8;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.signal span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #51c68e;
+  box-shadow: 0 0 0 5px rgba(81, 198, 142, 0.12);
+}
+.metric-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #e6f0ec;
+  color: #176b5b;
+  display: grid;
+  place-items: center;
+}
+.MuiTableHead-root {
+  background: #f7f9f7;
+}
+.MuiTableCell-head {
+  font-weight: 750 !important;
+  color: #58635f !important;
+}
+.MuiListItemButton-root.Mui-selected {
+  background: #e5f0ec !important;
+  color: #176b5b;
+}
+.MuiListItemButton-root.Mui-selected .MuiListItemIcon-root {
+  color: #176b5b;
+}
+@media (max-width: 800px) {
+  .login-shell {
+    grid-template-columns: 1fr;
+    padding: 24px;
+  }
+  .login-copy {
+    display: none;
+  }
+}
