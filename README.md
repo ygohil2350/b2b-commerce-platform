@@ -2,6 +2,10 @@
 
 A full-stack portfolio project for managing wholesale inventory, transactional bulk orders, and role-specific workflows. It combines a responsive React operations workspace with a FastAPI service and PostgreSQL-backed inventory ledger.
 
+> **AWS deployment:** Follow the command-only guide in
+> [Push the containers to AWS ECR](#push-the-containers-to-aws-ecr) to build, tag, upload, and
+> verify the API and frontend container images.
+
 ## Highlights
 
 - Live inventory dashboard with stock value, units on hand, low-stock alerts, and 30-day supply trends
@@ -51,7 +55,7 @@ Production systems commonly add Alembic migrations, refresh-token rotation, tax/
 Requirements: Docker Desktop with Compose v2.
 
 ```bash
-git clone <https://github.com/ygohil2350/b2b-commerce-platform>
+git clone <your-repository-url>
 cd b2b-commerce-platform
 cp .env.example .env
 docker compose up --build
@@ -72,7 +76,231 @@ The API container creates the schema and seeds demo data only when the users tab
 
 Change `JWT_SECRET` and all demo credentials before deploying beyond local development.
 
+## Push the containers to AWS ECR
+
+These commands build Linux production images for the API and web application and push them to
+private [Amazon ECR](https://docs.aws.amazon.com/AmazonECR/latest/userguide/docker-push-ecr-image.html)
+repositories. Run them from the repository root.
+
+Requirements: Docker Desktop, AWS CLI v2, and an authenticated AWS profile with permission to
+create and push to ECR repositories.
+
+### Windows PowerShell
+
+Configure the deployment values:
+
+```powershell
+$AWS_REGION = 'ap-south-1'
+$AWS_PROFILE = 'default'
+$IMAGE_TAG = Get-Date -Format 'yyyyMMddHHmmss'
+$PUBLIC_API_URL = 'https://api.example.com/api/v1'
+
+$AWS_ACCOUNT_ID = aws sts get-caller-identity `
+  --profile $AWS_PROFILE `
+  --query Account `
+  --output text
+
+$ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+```
+
+Create the repositories once:
+
+```powershell
+aws ecr create-repository `
+  --repository-name stockpilot-api `
+  --image-scanning-configuration scanOnPush=true `
+  --encryption-configuration encryptionType=AES256 `
+  --region $AWS_REGION `
+  --profile $AWS_PROFILE
+
+aws ecr create-repository `
+  --repository-name stockpilot-web `
+  --image-scanning-configuration scanOnPush=true `
+  --encryption-configuration encryptionType=AES256 `
+  --region $AWS_REGION `
+  --profile $AWS_PROFILE
+```
+
+Authenticate Docker with ECR:
+
+```powershell
+aws ecr get-login-password `
+  --region $AWS_REGION `
+  --profile $AWS_PROFILE |
+  docker login `
+    --username AWS `
+    --password-stdin $ECR_REGISTRY
+```
+
+Build, tag, and push the API image:
+
+```powershell
+docker build `
+  --platform linux/amd64 `
+  --tag "stockpilot-api:$IMAGE_TAG" `
+  .\backend
+
+docker tag `
+  "stockpilot-api:$IMAGE_TAG" `
+  "$ECR_REGISTRY/stockpilot-api:$IMAGE_TAG"
+
+docker push "$ECR_REGISTRY/stockpilot-api:$IMAGE_TAG"
+```
+
+Build, tag, and push the web image. Set `PUBLIC_API_URL` to the public HTTPS URL that will serve
+the deployed API before running this build.
+
+```powershell
+docker build `
+  --platform linux/amd64 `
+  --build-arg "VITE_API_URL=$PUBLIC_API_URL" `
+  --tag "stockpilot-web:$IMAGE_TAG" `
+  .\frontend
+
+docker tag `
+  "stockpilot-web:$IMAGE_TAG" `
+  "$ECR_REGISTRY/stockpilot-web:$IMAGE_TAG"
+
+docker push "$ECR_REGISTRY/stockpilot-web:$IMAGE_TAG"
+```
+
+Display the image addresses to use in ECS/Fargate or App Runner:
+
+```powershell
+Write-Output "$ECR_REGISTRY/stockpilot-api:$IMAGE_TAG"
+Write-Output "$ECR_REGISTRY/stockpilot-web:$IMAGE_TAG"
+
+aws ecr describe-images `
+  --repository-name stockpilot-api `
+  --region $AWS_REGION `
+  --profile $AWS_PROFILE `
+  --output table
+
+aws ecr describe-images `
+  --repository-name stockpilot-web `
+  --region $AWS_REGION `
+  --profile $AWS_PROFILE `
+  --output table
+```
+
+### macOS/Linux
+
+```bash
+export AWS_REGION='ap-south-1'
+export AWS_PROFILE='default'
+export IMAGE_TAG="$(date +%Y%m%d%H%M%S)"
+export PUBLIC_API_URL='https://api.example.com/api/v1'
+export AWS_ACCOUNT_ID="$(aws sts get-caller-identity \
+  --profile "$AWS_PROFILE" \
+  --query Account \
+  --output text)"
+export ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+aws ecr create-repository \
+  --repository-name stockpilot-api \
+  --image-scanning-configuration scanOnPush=true \
+  --encryption-configuration encryptionType=AES256 \
+  --region "$AWS_REGION" \
+  --profile "$AWS_PROFILE"
+
+aws ecr create-repository \
+  --repository-name stockpilot-web \
+  --image-scanning-configuration scanOnPush=true \
+  --encryption-configuration encryptionType=AES256 \
+  --region "$AWS_REGION" \
+  --profile "$AWS_PROFILE"
+
+aws ecr get-login-password \
+  --region "$AWS_REGION" \
+  --profile "$AWS_PROFILE" |
+  docker login \
+    --username AWS \
+    --password-stdin "$ECR_REGISTRY"
+
+docker build \
+  --platform linux/amd64 \
+  --tag "stockpilot-api:$IMAGE_TAG" \
+  ./backend
+
+docker tag \
+  "stockpilot-api:$IMAGE_TAG" \
+  "$ECR_REGISTRY/stockpilot-api:$IMAGE_TAG"
+
+docker push "$ECR_REGISTRY/stockpilot-api:$IMAGE_TAG"
+
+docker build \
+  --platform linux/amd64 \
+  --build-arg "VITE_API_URL=$PUBLIC_API_URL" \
+  --tag "stockpilot-web:$IMAGE_TAG" \
+  ./frontend
+
+docker tag \
+  "stockpilot-web:$IMAGE_TAG" \
+  "$ECR_REGISTRY/stockpilot-web:$IMAGE_TAG"
+
+docker push "$ECR_REGISTRY/stockpilot-web:$IMAGE_TAG"
+
+printf '%s\n' \
+  "$ECR_REGISTRY/stockpilot-api:$IMAGE_TAG" \
+  "$ECR_REGISTRY/stockpilot-web:$IMAGE_TAG"
+
+aws ecr describe-images \
+  --repository-name stockpilot-api \
+  --region "$AWS_REGION" \
+  --profile "$AWS_PROFILE" \
+  --output table
+
+aws ecr describe-images \
+  --repository-name stockpilot-web \
+  --region "$AWS_REGION" \
+  --profile "$AWS_PROFILE" \
+  --output table
+```
+
+ECR stores the images but does not run them. Use the two printed image addresses in an Amazon ECS
+Fargate task or App Runner service. Run PostgreSQL through Amazon RDS rather than inside the ECS
+task, and provide the API service with `DATABASE_URL`, `JWT_SECRET`, `ACCESS_TOKEN_EXPIRE_MINUTES`,
+and `CORS_ORIGINS` through its runtime environment or AWS Secrets Manager.
+
 ## Local development
+
+### Hot-reload development with Docker
+
+Use the development Compose file when actively editing the application. It bind-mounts the
+source code, enables Vite hot-module replacement for React, and starts FastAPI with Uvicorn's
+auto-reloader. You only need to rebuild when dependencies or a Dockerfile change.
+
+Windows PowerShell:
+
+```powershell
+.\scripts\dev.ps1
+```
+
+macOS/Linux:
+
+```bash
+./scripts/dev.sh
+```
+
+Alternatively, run Compose directly:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+After the initial startup:
+
+- Changes under `frontend/src/` update the browser through Vite HMR.
+- Changes under `backend/app/` automatically restart the FastAPI worker.
+- Refresh/rebuild is only needed after changing dependencies, Dockerfiles, or environment values.
+
+Stop the development stack with:
+
+```bash
+docker compose -f docker-compose.dev.yml down
+```
+
+### Development without Docker
 
 Start PostgreSQL only:
 
