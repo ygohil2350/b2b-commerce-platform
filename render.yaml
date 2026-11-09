@@ -4,13 +4,14 @@ services:
     name: stockpilot-api
     runtime: docker
     plan: free
+    region: singapore
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL # postgresql+psycopg://USER:PASSWORD@HOST/DB?sslmode=require
         sync: false
-      - key: CORS_ORIGINS # the Vercel URL of the web app
-        sync: false
+      - key: CORS_ORIGINS
+        value: https://stockpilot-eta-sandy.vercel.app
       - key: JWT_SECRET
         generateValue: true
