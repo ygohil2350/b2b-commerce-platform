@@ -1,0 +1,16 @@
+# Render Blueprint for the API. The web app deploys to Vercel; the database is Neon Postgres.
+services:
+  - type: web
+    name: stockpilot-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL # postgresql+psycopg://USER:PASSWORD@HOST/DB?sslmode=require
+        sync: false
+      - key: CORS_ORIGINS # the Vercel URL of the web app
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
